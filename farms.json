@@ -1,0 +1,5 @@
+[
+  { "name": "Sunshine Farm", "lat": 40.02, "lng": -105.25, "city": "Boulder" },
+  { "name": "River Valley Produce", "lat": 39.75, "lng": -104.99, "city": "Denver" },
+  { "name": "High Plains Orchard", "lat": 40.42, "lng": -104.71, "city": "Greeley" }
+]
