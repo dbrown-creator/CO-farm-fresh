@@ -1,39 +1,260 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Colorado Farm Fresh Demo</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
-    h2 { text-align: center; padding: 10px; }
-    #map { height: 80vh; width: 100%; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Colorado Farmland Map</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Leaflet MarkerCluster CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+        
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+        
+        /* Custom marker styling to match Colorado Land Link */
+        .custom-marker {
+            background-color: #b8956a;
+            border: 3px solid #fff;
+            border-radius: 50% 50% 50% 0;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+            width: 40px;
+            height: 40px;
+            transform: rotate(-45deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .custom-marker-icon {
+            transform: rotate(45deg);
+            color: white;
+            font-size: 20px;
+        }
+        
+        /* Cluster styling */
+        .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large {
+            background-color: rgba(184, 149, 106, 0.6);
+        }
+        
+        .marker-cluster-small div, .marker-cluster-medium div, .marker-cluster-large div {
+            background-color: #b8956a;
+            color: white;
+            font-weight: bold;
+        }
+        
+        /* Popup styling */
+        .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+            padding: 0;
+        }
+        
+        .leaflet-popup-content {
+            margin: 0;
+            min-width: 250px;
+        }
+        
+        .popup-content {
+            padding: 15px;
+        }
+        
+        .popup-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .popup-detail {
+            margin: 5px 0;
+            color: #555;
+            font-size: 14px;
+        }
+        
+        .popup-category {
+            display: inline-block;
+            background-color: #b8956a;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-top: 8px;
+        }
+        
+        /* Filter panel */
+        .filter-panel {
+            position: absolute;
+            top: 10px;
+            left: 60px;
+            z-index: 1000;
+            background: white;
+            padding: 12px 20px;
+            border-radius: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .filter-icon {
+            font-size: 18px;
+        }
+        
+        .filter-select {
+            border: none;
+            background: none;
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+            cursor: pointer;
+            outline: none;
+        }
+    </style>
 </head>
 <body>
-  <h2>Colorado Farm Fresh Demo</h2>
-  <div id="map"></div>
-
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script>
-    // Initialize map
-    var map = L.map('map').setView([39.5, -105.5], 7);
-
-    // Add OpenStreetMap baselayer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
-    }).addTo(map);
-
-    // Load farm data
-    fetch('farms.json')
-      .then(response => response.json())
-      .then(farms => {
-        farms.forEach(f => {
-          L.marker([f.lat, f.lng])
-            .addTo(map)
-            .bindPopup(`<strong>${f.name}</strong><br>${f.city || ''}`);
+    <!-- Filter Panel -->
+    <div class="filter-panel">
+        <span class="filter-icon">⚙</span>
+        <select id="categoryFilter" class="filter-select">
+            <option value="">All Categories</option>
+        </select>
+    </div>
+    
+    <div id="map"></div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Leaflet MarkerCluster JS -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    
+    <!-- PapaParse for CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
+    <script>
+        // Initialize the map centered on Colorado
+        const map = L.map('map').setView([39.5, -105.8], 7);
+        
+        // Add OpenStreetMap tile layer with a light style similar to Colorado Land Link
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+        
+        // Create a marker cluster group
+        const markers = L.markerClusterGroup({
+            showCoverageOnHover: false,
+            maxClusterRadius: 60
         });
-      });
-  </script>
+        
+        let allMarkers = [];
+        
+        // Custom icon function
+        function createCustomIcon() {
+            return L.divIcon({
+                className: 'custom-div-icon',
+                html: '<div class="custom-marker"><div class="custom-marker-icon">🌾</div></div>',
+                iconSize: [40, 40],
+                iconAnchor: [20, 40],
+                popupAnchor: [0, -40]
+            });
+        }
+        
+        // Function to create popup content
+        function createPopupContent(data) {
+            return `
+                <div class="popup-content">
+                    <div class="popup-title">${data.Name}</div>
+                    <div class="popup-detail">${data.Description}</div>
+                    <div class="popup-category">${data.Category}</div>
+                </div>
+            `;
+        }
+        
+        // Load and parse CSV data
+        // Replace 'data.csv' with your actual CSV filename
+        const csvData = `Name,Description,Latitude,Longitude,Category
+Property A,Beautiful farmland in Mesa County,39.0639,-108.5506,Farmland
+Property B,Organic farm opportunity,38.8339,-104.8214,Organic
+Property C,Ranch with water rights,40.5853,-105.0844,Ranch
+Property D,Small acreage near Denver,39.7392,-104.9903,Farmland
+Property E,Mountain property,39.1911,-106.8175,Ranch`;
+        
+        // Parse the CSV
+        Papa.parse(csvData, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                const data = results.data;
+                
+                // Populate category filter
+                const categories = [...new Set(data.map(item => item.Category))].sort();
+                const filterSelect = document.getElementById('categoryFilter');
+                categories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category;
+                    option.textContent = category;
+                    filterSelect.appendChild(option);
+                });
+                
+                // Create markers for each location
+                data.forEach(item => {
+                    if (item.Latitude && item.Longitude) {
+                        const marker = L.marker(
+                            [parseFloat(item.Latitude), parseFloat(item.Longitude)],
+                            { icon: createCustomIcon() }
+                        );
+                        
+                        marker.bindPopup(createPopupContent(item));
+                        marker.category = item.Category;
+                        
+                        allMarkers.push(marker);
+                        markers.addLayer(marker);
+                    }
+                });
+                
+                map.addLayer(markers);
+                
+                // Fit map to markers
+                if (allMarkers.length > 0) {
+                    const group = new L.featureGroup(allMarkers);
+                    map.fitBounds(group.getBounds().pad(0.1));
+                }
+            }
+        });
+        
+        // Filter functionality
+        document.getElementById('categoryFilter').addEventListener('change', function(e) {
+            const selectedCategory = e.target.value;
+            
+            markers.clearLayers();
+            
+            const filteredMarkers = selectedCategory === '' 
+                ? allMarkers 
+                : allMarkers.filter(m => m.category === selectedCategory);
+            
+            filteredMarkers.forEach(marker => markers.addLayer(marker));
+            
+            if (filteredMarkers.length > 0) {
+                const group = new L.featureGroup(filteredMarkers);
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
+        });
+    </script>
 </body>
 </html>
